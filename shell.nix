@@ -1,24 +1,37 @@
 {pkgs ? import <nixpkgs> {}}:
 pkgs.mkShell {
   nativeBuildInputs = with pkgs; [
-    libGL
-    glfw
-
-    # X11 dependencies
-    libX11
-    libX11.dev
-    libXcursor
-    libXi
-    libXinerama
-    libXrandr
-
     cmake
     ninja
     ccache
 
     clang-tools
+
+    # Wayland dependencies
+    wayland-scanner
+    pkg-config
+  ];
+
+  buildInputs = with pkgs; [
+    libGL
+
+    # X11 dependencies
+    libX11
+    libXcursor
+    libXi
+    libXinerama
+    libXrandr
+
+    # Wayland dependencies
+    gtk3
+    libxkbcommon
   ];
 
   CMAKE_CXX_COMPILER_LAUNCHER = "ccache";
-  CMAKE_GENERATOR = "Ninja";
+
+  # Wayland dependencies
+  LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (with pkgs; [
+    wayland
+    libxkbcommon
+  ]);
 }

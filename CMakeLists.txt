@@ -1,45 +1,44 @@
 cmake_minimum_required(VERSION 3.23)
 
 set(CMAKE_CXX_STANDARD 17)
-# set(CMAKE_GENERATOR "Ninja") # Doesn't work
 set(CMAKE_BUILD_TYPE "Debug")
 
-project(LyckyBallRace C CXX)
+project(game C CXX)
 
 # Generate compile_commands.json
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(OpenGL REQUIRED)
-find_package(glfw3 REQUIRED)
 
-include_directories(SYSTEM
-  external/glad/include
-)
+# GLFW
+set(GLFW_BUILD_DOCS     OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_INSTALL        OFF CACHE BOOL "" FORCE)
+# set(GLFW_BUILD_X11      OFF CACHE BOOL "" FORCE)
+# set(GLFW_BUILD_WAYLAND  OFF CACHE BOOL "" FORCE)
+# set(GLFW_BUILD_WIN32    OFF CACHE BOOL "" FORCE)
+# set(GLFW_BUILD_COCOA    OFF CACHE BOOL "" FORCE)
 
-add_executable(game
-  main/main.cpp
-  external/glad/src/gl.c
-)
+# https://www.glfw.org/docs/3.3/compile.html#compile_options_win32
+# set(GLFW_USE_HYBRID_HPG OFF CACHE BOOL "" FORCE)
 
-target_sources(game
-  PRIVATE
+# GLAD
+add_subdirectory(external/glfw EXCLUDE_FROM_ALL)
+
+# Final exacutable
+add_executable(${PROJECT_NAME} WIN32
     main/main.cpp
-
-  PUBLIC
-    FILE_SET headers
-    TYPE HEADERS
-    BASE_DIRS
-      main/include
-    FILES
 )
 
-target_link_libraries(game
+target_include_directories(${PROJECT_NAME}
   PRIVATE
-    GL
+    ${GLFW_SOURCE_DIR}/deps
+    main/include
+)
+
+target_link_libraries(${PROJECT_NAME}
+  PRIVATE
+    OpenGL::GL
     glfw
-    # m
-    # pthread
-    # dl
-    # rt
-    # X11
 )

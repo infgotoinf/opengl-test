@@ -1,4 +1,6 @@
+#define GLAD_GL_IMPLEMENTATION
 #include <glad/gl.h>
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
 #include <cstdio>
@@ -20,20 +22,27 @@ void processInput(GLFWwindow *window)
         glfwSetWindowShouldClose(window, true);
 }
 
+static void glfw_error_callback(int code, const char* description)
+{
+    std::cerr << "GLFW error " << code << ": "
+              << description << std::endl;
+}
+
 int main(void)
 {
-    GLFWwindow* window;
+    glfwSetErrorCallback(glfw_error_callback);
 
     // Initialize the library
     if (!glfwInit())
         return 1;
 
-    // Create a windowed mode window and its OpenGL context
-    window = glfwCreateWindow(WIDTH, HEIGHT, "Hello World from glad + GLFW", NULL, NULL);
-
+    glfwWindowHint(GLFW_FLOATING, GLFW_TRUE);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    // Create a windowed mode window and its OpenGL context
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Hello World from GLFW + OpenGL", NULL, NULL);
 
     if (!window)
     {
