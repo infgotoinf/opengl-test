@@ -85,19 +85,21 @@ int main(void)
     if (!glfwInit())
         return 1;
 
-    glfwWindowHint(GLFW_FLOATING, GLFW_TRUE);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); // This makes window floating in sway
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // Create a windowed mode window and its OpenGL context
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Hello World from GLFW + OpenGL", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Shader test", nullptr, nullptr);
 
     if (!window)
     {
         glfwTerminate();
         return 1;
     }
+
+    glfwSetWindowSize(window, WIDTH, HEIGHT);
 
     // Make the window's context current
     glfwMakeContextCurrent(window);
@@ -119,29 +121,11 @@ int main(void)
             fragmentShader
      });
 
-
-    float vertices[] = {
-        -0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,
-         0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,
-         0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f,
-    };
-
-    unsigned int VBO, VAO;
+    unsigned int VAO;
     glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
-    glBindVertexArray(VAO);
 
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    // color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
+    int resolutionLoc = glGetUniformLocation(shaderProgram, "iResolution");
+    int timeLoc = glGetUniformLocation(shaderProgram, "iTime");
 
     // Loop until the user closes the window
     while (!glfwWindowShouldClose(window))
@@ -150,12 +134,19 @@ int main(void)
         if(glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
             glfwSetWindowShouldClose(window, true);
 
+        glViewport(0, 0, WIDTH, HEIGHT);
+
         // Render here
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         // be sure to activate the shader
         glUseProgram(shaderProgram);
+
+        glUniform2f(resolutionLoc,
+            static_cast<float>(WIDTH),
+            static_cast<float>(HEIGHT));
+        glUniform1f(timeLoc, static_cast<float>(glfwGetTime()));
 
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -168,7 +159,6 @@ int main(void)
     }
 
     glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
     glDeleteProgram(shaderProgram);
 
     glfwTerminate();
