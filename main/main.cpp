@@ -25,41 +25,33 @@ static void glfw_error_callback(int code, const char* description)
     printf("GLFW error %d: %s\n", code, description);
 }
 
-void compileShaderFromFile(const char* shader_path, uint shader_type)
+void compileShaderFromFile(const char* shader_path, uint shader)
 {
-    std::string shader_code;
-    std::ifstream shader_file;
+    std::ifstream shader_file(shader_path);
+    if (!shader_file) {
+        printf("ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ\n%s\n", shader_path);
+        return;
+    }
 
-    // ensure ifstream objects can throw exceptions:
-    shader_file.exceptions (std::ifstream::failbit | std::ifstream::badbit);
-    try
-    {
-        // open file
-        shader_file.open(shader_path);
-        std::stringstream shader_stream;
-        // read file's buffer contents into streams
-        shader_stream << shader_file.rdbuf();
-        // close file handlers
-        shader_file.close();
-        // convert stream into string
-        shader_code = shader_stream.str();
-    }
-    catch(std::ifstream::failure e)
-    {
-        printf("ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ");
-    }
+    std::stringstream shader_stream;
+    // read file's buffer contents into streams
+    shader_stream << shader_file.rdbuf();
+    // close file handlers
+    shader_file.close();
+    // convert stream into string
+    std::string shader_code = shader_stream.str();
     const char* cstr_shader_code = shader_code.c_str();
-    unsigned int vertexShader;
-    glShaderSource(shader_type, 1, &cstr_shader_code, NULL);
-    glCompileShader(shader_type);
+
+    glShaderSource(shader, 1, &cstr_shader_code, nullptr);
+    glCompileShader(shader);
 
     int success;
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
     if(!success)
     {
         char infoLog[512];
-        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-        printf("ERROR::SHADER::VERTEX::COMPILATION_FAILED\n%s\n", infoLog);
+        glGetShaderInfoLog(shader, 512, nullptr, infoLog);
+        printf("ERROR::SHADER::COMPILATION_FAILED\n%s\n", infoLog);
     }
 }
 
@@ -75,7 +67,7 @@ uint createShaderProgram(std::list<uint> shaders)
     glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
     if(!success) {
         char infoLog[512];
-        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+        glGetProgramInfoLog(shaderProgram, 512, nullptr, infoLog);
         printf("ERROR::SHADER::PROGRAM::LINK_FAILED\n%s\n", infoLog);
     }
 
@@ -99,7 +91,7 @@ int main(void)
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // Create a windowed mode window and its OpenGL context
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Hello World from GLFW + OpenGL", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Hello World from GLFW + OpenGL", nullptr, nullptr);
 
     if (!window)
     {
@@ -134,29 +126,22 @@ int main(void)
          0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f,
     };
 
-    unsigned int VBO;
+    unsigned int VBO, VAO;
+    glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
+    // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+    glBindVertexArray(VAO);
+
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-
-    unsigned int VAO;
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
-
+    // position attribute
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-
+    // color attribute
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-
-    // as we only have a single shader, we could also just activate our shader once beforehand if we want to
-    glUseProgram(shaderProgram);
 
     // Loop until the user closes the window
     while (!glfwWindowShouldClose(window))
@@ -170,7 +155,7 @@ int main(void)
         glClear(GL_COLOR_BUFFER_BIT);
 
         // be sure to activate the shader
-        // glUseProgram(shaderProgram);
+        glUseProgram(shaderProgram);
 
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, 3);
