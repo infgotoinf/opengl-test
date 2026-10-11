@@ -9,11 +9,29 @@
 #include <fstream>
 #include <sstream>
 #include <list>
+#include <filesystem>
 
 
 
 #define WIDTH 640
 #define HEIGHT 640
+
+
+
+struct ShaderFile {
+    const char* path;
+    std::filesystem::file_time_type last_change_time;
+    ShaderFile(const char* path) : path(path) {
+        last_change_time = std::filesystem::last_write_time(path);
+    }
+};
+
+struct Shader {
+    ShaderFile file;
+    uint shader;
+};
+
+
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -25,11 +43,11 @@ static void glfw_error_callback(int code, const char* description)
     printf("GLFW error %d: %s\n", code, description);
 }
 
-void compileShaderFromFile(const char* shader_path, uint shader)
+void compileShader(Shader shader)
 {
-    std::ifstream shader_file(shader_path);
+    std::ifstream shader_file(shader.file.path);
     if (!shader_file) {
-        printf("ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ\n%s\n", shader_path);
+        printf("ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ\n%s\n", shader.file.path);
         return;
     }
 
@@ -42,24 +60,24 @@ void compileShaderFromFile(const char* shader_path, uint shader)
     std::string shader_code = shader_stream.str();
     const char* cstr_shader_code = shader_code.c_str();
 
-    glShaderSource(shader, 1, &cstr_shader_code, nullptr);
-    glCompileShader(shader);
+    glShaderSource(shader.shader, 1, &cstr_shader_code, nullptr);
+    glCompileShader(shader.shader);
 
     int success;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+    glGetShaderiv(shader.shader, GL_COMPILE_STATUS, &success);
     if(!success)
     {
         char infoLog[512];
-        glGetShaderInfoLog(shader, 512, nullptr, infoLog);
+        glGetShaderInfoLog(shader.shader, 512, nullptr, infoLog);
         printf("ERROR::SHADER::COMPILATION_FAILED\n%s\n", infoLog);
     }
 }
 
-uint createShaderProgram(std::list<uint> shaders)
+uint createShaderProgram(std::list<Shader> shaders)
 {
     unsigned int shaderProgram = glCreateProgram();
     for (auto shader : shaders)
-        glAttachShader(shaderProgram, shader);
+        glAttachShader(shaderProgram, shader.shader);
 
     glLinkProgram(shaderProgram);
 
@@ -72,10 +90,21 @@ uint createShaderProgram(std::list<uint> shaders)
     }
 
     for (auto shader : shaders)
-        glDeleteShader(shader);
+        glDeleteShader(shader.shader);
 
     return shaderProgram;
 }
+
+void updateShaderProgram(std::list<Shader> *shaders, uint *shaderProgram) {
+    for (auto &shader : *shaders) {
+        if (shader.file.last_change_time < std::filesystem::last_write_time(shader.file.path))
+            compileShader(shader);
+    }
+
+    *shaderProgram = createShaderProgram(*shaders);
+}
+
+
 
 int main(void)
 {
@@ -110,22 +139,24 @@ int main(void)
         return 1;
 
 
-    unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    compileShaderFromFile("./resources/triangle.vert", vertexShader);
-
-    unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    compileShaderFromFile("./resources/triangle.frag", fragmentShader);
-
-    uint shaderProgram = createShaderProgram({
-            vertexShader,
-            fragmentShader
-     });
-
     unsigned int VAO;
     glGenVertexArrays(1, &VAO);
 
+    std::list<Shader> shaders = {
+        { { "./resources/triangle.vert" }, glCreateShader(GL_VERTEX_SHADER) },
+        { { "./resources/triangle.frag" }, glCreateShader(GL_FRAGMENT_SHADER) },
+    };
+
+    for (auto shader : shaders) {
+        compileShader(shader);
+    }
+
+    uint shaderProgram = createShaderProgram(shaders);
+
     int resolutionLoc = glGetUniformLocation(shaderProgram, "iResolution");
     int timeLoc = glGetUniformLocation(shaderProgram, "iTime");
+
+    double shaderUpdateTime = glfwGetTime();
 
     // Loop until the user closes the window
     while (!glfwWindowShouldClose(window))
@@ -133,6 +164,11 @@ int main(void)
         // Process input
         if(glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
             glfwSetWindowShouldClose(window, true);
+
+        if (glfwGetTime() - shaderUpdateTime > 1) {
+            shaderUpdateTime = glfwGetTime();
+            updateShaderProgram(&shaders, &shaderProgram);
+        }
 
         glViewport(0, 0, WIDTH, HEIGHT);
 
