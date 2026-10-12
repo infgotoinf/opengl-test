@@ -18,11 +18,15 @@
 
 
 
+namespace fs = std::filesystem;
+
+
+
 struct ShaderFile {
     const char* path;
-    std::filesystem::file_time_type last_change_time;
+    fs::file_time_type last_change_time;
     ShaderFile(const char* path) : path(path) {
-        last_change_time = std::filesystem::last_write_time(path);
+        last_change_time = fs::last_write_time(path);
     }
 };
 
@@ -96,12 +100,24 @@ uint createShaderProgram(std::list<Shader> shaders)
 }
 
 void updateShaderProgram(std::list<Shader> *shaders, uint *shaderProgram) {
+    bool shader_was_recompiled = false;
+
     for (auto &shader : *shaders) {
-        if (shader.file.last_change_time < std::filesystem::last_write_time(shader.file.path))
+        if (fs::file_time_type file_last_time_write = fs::last_write_time(shader.file.path)
+           ; shader.file.last_change_time < file_last_time_write)
+        {
+            printf("Recompiling %s\n", shader.file.path);
             compileShader(shader);
+            shader.file.last_change_time = file_last_time_write;
+            shader_was_recompiled = true;
+        };
     }
 
-    *shaderProgram = createShaderProgram(*shaders);
+    if (shader_was_recompiled)
+    {
+        printf("Recompiling shader program\n");
+        *shaderProgram = createShaderProgram(*shaders);
+    }
 }
 
 
@@ -153,8 +169,10 @@ int main(void)
 
     uint shaderProgram = createShaderProgram(shaders);
 
-    int resolutionLoc = glGetUniformLocation(shaderProgram, "iResolution");
-    int timeLoc = glGetUniformLocation(shaderProgram, "iTime");
+    int mouseLoc = glGetUniformLocation(shaderProgram, "u_mouse");
+    int resolutionLoc = glGetUniformLocation(shaderProgram, "u_resolution");
+    int timeLoc = glGetUniformLocation(shaderProgram, "u_time");
+    double mouse_x, mouse_y;
 
     double shaderUpdateTime = glfwGetTime();
 
@@ -165,7 +183,7 @@ int main(void)
         if(glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
             glfwSetWindowShouldClose(window, true);
 
-        if (glfwGetTime() - shaderUpdateTime > 1) {
+        if (glfwGetTime() - shaderUpdateTime > 0.5) {
             shaderUpdateTime = glfwGetTime();
             updateShaderProgram(&shaders, &shaderProgram);
         }
@@ -179,6 +197,10 @@ int main(void)
         // be sure to activate the shader
         glUseProgram(shaderProgram);
 
+        glfwGetCursorPos(window, &mouse_x, &mouse_y);
+        glUniform2f(mouseLoc,
+            static_cast<float>(mouse_x),
+            static_cast<float>(mouse_y));
         glUniform2f(resolutionLoc,
             static_cast<float>(WIDTH),
             static_cast<float>(HEIGHT));
