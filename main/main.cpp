@@ -8,7 +8,7 @@
 #include <string>
 #include <fstream>
 #include <sstream>
-#include <list>
+#include <map>
 #include <filesystem>
 
 
@@ -22,17 +22,110 @@ namespace fs = std::filesystem;
 
 
 
-struct ShaderFile {
-    const char* path;
+class Shader {
     fs::file_time_type last_change_time;
-    ShaderFile(const char* path) : path(path) {
-        last_change_time = fs::last_write_time(path);
+
+    void compileShader()
+    {
+        printf("Compiling %s\n", path.c_str());
+
+        std::ifstream shader_file(path);
+        if (!shader_file) {
+            printf("ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ\n%s\n", path.c_str());
+            return;
+        }
+
+        std::stringstream shader_stream;
+        // read file's buffer contents into streams
+        shader_stream << shader_file.rdbuf();
+        // close file handlers
+        shader_file.close();
+        // convert stream into string
+        std::string shader_code = shader_stream.str();
+        const char* cstr_shader_code = shader_code.c_str();
+
+        glShaderSource(shader, 1, &cstr_shader_code, nullptr);
+        glCompileShader(shader);
+
+        int success;
+        glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+        if(!success)
+        {
+            char infoLog[512];
+            glGetShaderInfoLog(shader, 512, nullptr, infoLog);
+            printf("ERROR::SHADER::COMPILATION_FAILED\n%s\n", infoLog);
+        }
+    }
+
+public:
+    fs::path path;
+    uint shader;
+
+    Shader(fs::path path, uint shader) : path(path), shader(shader), last_change_time(fs::last_write_time(path)) {
+        compileShader();
+    }
+
+    bool updateShader()
+    {
+        if (fs::file_time_type file_last_time_write = fs::last_write_time(path)
+           ; last_change_time < file_last_time_write)
+        {
+            compileShader();
+            last_change_time = file_last_time_write;
+            return true;
+        };
+
+        return false;
     }
 };
 
-struct Shader {
-    ShaderFile file;
-    uint shader;
+class ShaderProgram {
+    fs::path shaderPath;
+
+    void createShaderProgram(const Shader *shader)
+    {
+        printf("Creating shader program %d with shader %s\n", program, shader->path.c_str());
+
+        static Shader vert_shader = { "./resources/vertex.vert", glCreateShader(GL_VERTEX_SHADER) };
+
+        unsigned int shaderProgram = glCreateProgram();
+        glAttachShader(shaderProgram, shader->shader);
+        glAttachShader(shaderProgram, vert_shader.shader);
+
+        glLinkProgram(shaderProgram);
+
+        int success;
+        glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+        if(!success) {
+            char infoLog[512];
+            glGetProgramInfoLog(shaderProgram, 512, nullptr, infoLog);
+            printf("ERROR::SHADER::PROGRAM::LINK_FAILED\n%s\n", infoLog);
+        }
+
+        // glDeleteShader(shader.shader);
+
+        program = shaderProgram;
+        shaderPath = shader->path;
+    }
+
+public:
+    uint program;
+    int mouseLoc;
+    int resolutionLoc;
+    int timeLoc;
+
+    ShaderProgram(Shader shader) {
+        createShaderProgram(&shader);
+        mouseLoc = glGetUniformLocation(program, "u_mouse");
+        resolutionLoc = glGetUniformLocation(program, "u_resolution");
+        timeLoc = glGetUniformLocation(program, "u_time");
+    }
+
+    void updateShaderProgram(Shader *shader)
+    {
+        if (shaderPath != shader->path || shader->updateShader())
+            createShaderProgram(shader);
+    }
 };
 
 
@@ -47,82 +140,9 @@ static void glfw_error_callback(int code, const char* description)
     printf("GLFW error %d: %s\n", code, description);
 }
 
-void compileShader(Shader shader)
-{
-    std::ifstream shader_file(shader.file.path);
-    if (!shader_file) {
-        printf("ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ\n%s\n", shader.file.path);
-        return;
-    }
-
-    std::stringstream shader_stream;
-    // read file's buffer contents into streams
-    shader_stream << shader_file.rdbuf();
-    // close file handlers
-    shader_file.close();
-    // convert stream into string
-    std::string shader_code = shader_stream.str();
-    const char* cstr_shader_code = shader_code.c_str();
-
-    glShaderSource(shader.shader, 1, &cstr_shader_code, nullptr);
-    glCompileShader(shader.shader);
-
-    int success;
-    glGetShaderiv(shader.shader, GL_COMPILE_STATUS, &success);
-    if(!success)
-    {
-        char infoLog[512];
-        glGetShaderInfoLog(shader.shader, 512, nullptr, infoLog);
-        printf("ERROR::SHADER::COMPILATION_FAILED\n%s\n", infoLog);
-    }
-}
-
-uint createShaderProgram(std::list<Shader> shaders)
-{
-    unsigned int shaderProgram = glCreateProgram();
-    for (auto shader : shaders)
-        glAttachShader(shaderProgram, shader.shader);
-
-    glLinkProgram(shaderProgram);
-
-    int success;
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-    if(!success) {
-        char infoLog[512];
-        glGetProgramInfoLog(shaderProgram, 512, nullptr, infoLog);
-        printf("ERROR::SHADER::PROGRAM::LINK_FAILED\n%s\n", infoLog);
-    }
-
-    for (auto shader : shaders)
-        glDeleteShader(shader.shader);
-
-    return shaderProgram;
-}
-
-void updateShaderProgram(std::list<Shader> *shaders, uint *shaderProgram) {
-    bool shader_was_recompiled = false;
-
-    for (auto &shader : *shaders) {
-        if (fs::file_time_type file_last_time_write = fs::last_write_time(shader.file.path)
-           ; shader.file.last_change_time < file_last_time_write)
-        {
-            printf("Recompiling %s\n", shader.file.path);
-            compileShader(shader);
-            shader.file.last_change_time = file_last_time_write;
-            shader_was_recompiled = true;
-        };
-    }
-
-    if (shader_was_recompiled)
-    {
-        printf("Recompiling shader program\n");
-        *shaderProgram = createShaderProgram(*shaders);
-    }
-}
 
 
-
-int main(void)
+int main()
 {
     glfwSetErrorCallback(glfw_error_callback);
 
@@ -158,23 +178,22 @@ int main(void)
     unsigned int VAO;
     glGenVertexArrays(1, &VAO);
 
-    std::list<Shader> shaders = {
-        { { "./resources/triangle.vert" }, glCreateShader(GL_VERTEX_SHADER) },
-        { { "./resources/triangle.frag" }, glCreateShader(GL_FRAGMENT_SHADER) },
-    };
 
-    for (auto shader : shaders) {
-        compileShader(shader);
+    std::map<fs::path, Shader> shaders;
+    for (auto &path : fs::directory_iterator("./resources/fragment"))
+    {
+        shaders.insert({ path.path(), { path.path(), glCreateShader(GL_FRAGMENT_SHADER) }});
     }
 
-    uint shaderProgram = createShaderProgram(shaders);
+    fs::path selectedShadersPath = shaders.begin()->first;
 
-    int mouseLoc = glGetUniformLocation(shaderProgram, "u_mouse");
-    int resolutionLoc = glGetUniformLocation(shaderProgram, "u_resolution");
-    int timeLoc = glGetUniformLocation(shaderProgram, "u_time");
+    ShaderProgram shaderProgram = shaders.at(selectedShadersPath);
+
     double mouse_x, mouse_y;
 
     double shaderUpdateTime = glfwGetTime();
+
+    bool previousFrameSpaceState = GLFW_RELEASE;
 
     // Loop until the user closes the window
     while (!glfwWindowShouldClose(window))
@@ -182,10 +201,53 @@ int main(void)
         // Process input
         if(glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
             glfwSetWindowShouldClose(window, true);
+        if(glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS && previousFrameSpaceState == GLFW_RELEASE)
+        {
+            printf("Space was pressed\n");
 
-        if (glfwGetTime() - shaderUpdateTime > 0.5) {
+            bool setPathToNext = false;
+            fs::path newSelectedShadersPath;
+            for (auto & [path, shader] : shaders)
+            {
+                if (setPathToNext)
+                {
+                    printf("Switch to shader %s\n", path.c_str());
+
+                    newSelectedShadersPath = path;
+                    selectedShadersPath = path;
+                    break;
+                }
+
+                if (path == selectedShadersPath)
+                    setPathToNext = true;
+            }
+            if (newSelectedShadersPath.empty())
+            {
+                printf("Switch to shader %s\n", shaders.begin()->first.c_str());
+
+                selectedShadersPath = shaders.begin()->first;
+            }
+        }
+        previousFrameSpaceState = glfwGetKey(window, GLFW_KEY_SPACE);
+
+        if (glfwGetTime() - shaderUpdateTime > 0.1) {
             shaderUpdateTime = glfwGetTime();
-            updateShaderProgram(&shaders, &shaderProgram);
+            for (auto &path : fs::directory_iterator("./resources/fragment"))
+            {
+                // https://stackoverflow.com/a/1939971
+                // Ngl that looks ugly if I would implement my own std::map it would look better
+                if (shaders.find(path.path()) == shaders.end())
+                {
+                    shaders.insert({ path.path(), { path.path(), glCreateShader(GL_FRAGMENT_SHADER) }});
+                }
+            }
+            if (not fs::exists(selectedShadersPath))
+            {
+                shaders.erase(selectedShadersPath);
+                selectedShadersPath = shaders.begin()->first;
+            }
+
+            shaderProgram.updateShaderProgram(&shaders.at(selectedShadersPath));
         }
 
         glViewport(0, 0, WIDTH, HEIGHT);
@@ -195,16 +257,16 @@ int main(void)
         glClear(GL_COLOR_BUFFER_BIT);
 
         // be sure to activate the shader
-        glUseProgram(shaderProgram);
+        glUseProgram(shaderProgram.program);
 
         glfwGetCursorPos(window, &mouse_x, &mouse_y);
-        glUniform2f(mouseLoc,
+        glUniform2f(shaderProgram.mouseLoc,
             static_cast<float>(mouse_x),
             static_cast<float>(mouse_y));
-        glUniform2f(resolutionLoc,
+        glUniform2f(shaderProgram.resolutionLoc,
             static_cast<float>(WIDTH),
             static_cast<float>(HEIGHT));
-        glUniform1f(timeLoc, static_cast<float>(glfwGetTime()));
+        glUniform1f(shaderProgram.timeLoc, static_cast<float>(glfwGetTime()));
 
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -217,7 +279,7 @@ int main(void)
     }
 
     glDeleteVertexArrays(1, &VAO);
-    glDeleteProgram(shaderProgram);
+    glDeleteProgram(shaderProgram.program);
 
     glfwTerminate();
     return 0;
