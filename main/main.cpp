@@ -13,8 +13,7 @@
 
 
 
-// #define SIZE 640
-#define SIZE 320
+static int window_size = 640;
 
 
 
@@ -157,7 +156,7 @@ int main()
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // Create a windowed mode window and its OpenGL context
-    GLFWwindow* window = glfwCreateWindow(SIZE, SIZE, "Shader test", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(window_size, window_size, "Shader test", nullptr, nullptr);
 
     if (!window)
     {
@@ -165,7 +164,7 @@ int main()
         return 1;
     }
 
-    glfwSetWindowSize(window, SIZE, SIZE);
+    glfwSetWindowSize(window, window_size, window_size);
 
     // Make the window's context current
     glfwMakeContextCurrent(window);
@@ -195,6 +194,7 @@ int main()
     double shaderUpdateTime = glfwGetTime();
 
     bool previousFrameSpaceState = GLFW_RELEASE;
+    bool previousFrameRState = GLFW_RELEASE;
 
     // Loop until the user closes the window
     while (!glfwWindowShouldClose(window))
@@ -202,6 +202,16 @@ int main()
         // Process input
         if(glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
             glfwSetWindowShouldClose(window, true);
+        if(glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS && previousFrameRState == GLFW_RELEASE)
+        {
+            static bool window_size_switch = false;
+            if (window_size_switch)
+                window_size = 640;
+            else
+                window_size = 320;
+            glfwSetWindowSize(window, window_size, window_size);
+            window_size_switch = !window_size_switch;
+        }
         if(glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS && previousFrameSpaceState == GLFW_RELEASE)
         {
             printf("Space was pressed\n");
@@ -229,6 +239,7 @@ int main()
                 selectedShadersPath = shaders.begin()->first;
             }
         }
+        previousFrameRState = glfwGetKey(window, GLFW_KEY_R);
         previousFrameSpaceState = glfwGetKey(window, GLFW_KEY_SPACE);
 
         if (glfwGetTime() - shaderUpdateTime > 0.1) {
@@ -251,7 +262,7 @@ int main()
             shaderProgram.updateShaderProgram(&shaders.at(selectedShadersPath));
         }
 
-        glViewport(0, 0, SIZE, SIZE);
+        glViewport(0, 0, window_size, window_size);
 
         // Render here
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -265,8 +276,8 @@ int main()
             static_cast<float>(mouse_x),
             static_cast<float>(mouse_y));
         glUniform2f(shaderProgram.resolutionLoc,
-            static_cast<float>(SIZE),
-            static_cast<float>(SIZE));
+            static_cast<float>(window_size),
+            static_cast<float>(window_size));
         glUniform1f(shaderProgram.timeLoc, static_cast<float>(glfwGetTime()));
 
         glBindVertexArray(VAO);
