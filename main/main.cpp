@@ -13,8 +13,8 @@
 
 
 
-#define WIDTH 640
-#define HEIGHT 640
+// #define SIZE 640
+#define SIZE 320
 
 
 
@@ -106,6 +106,10 @@ class ShaderProgram {
 
         program = shaderProgram;
         shaderPath = shader->path;
+
+        mouseLoc = glGetUniformLocation(program, "u_mouse");
+        resolutionLoc = glGetUniformLocation(program, "u_resolution");
+        timeLoc = glGetUniformLocation(program, "u_time");
     }
 
 public:
@@ -116,9 +120,6 @@ public:
 
     ShaderProgram(Shader shader) {
         createShaderProgram(&shader);
-        mouseLoc = glGetUniformLocation(program, "u_mouse");
-        resolutionLoc = glGetUniformLocation(program, "u_resolution");
-        timeLoc = glGetUniformLocation(program, "u_time");
     }
 
     void updateShaderProgram(Shader *shader)
@@ -156,7 +157,7 @@ int main()
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // Create a windowed mode window and its OpenGL context
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Shader test", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(SIZE, SIZE, "Shader test", nullptr, nullptr);
 
     if (!window)
     {
@@ -164,7 +165,7 @@ int main()
         return 1;
     }
 
-    glfwSetWindowSize(window, WIDTH, HEIGHT);
+    glfwSetWindowSize(window, SIZE, SIZE);
 
     // Make the window's context current
     glfwMakeContextCurrent(window);
@@ -250,7 +251,7 @@ int main()
             shaderProgram.updateShaderProgram(&shaders.at(selectedShadersPath));
         }
 
-        glViewport(0, 0, WIDTH, HEIGHT);
+        glViewport(0, 0, SIZE, SIZE);
 
         // Render here
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -264,8 +265,8 @@ int main()
             static_cast<float>(mouse_x),
             static_cast<float>(mouse_y));
         glUniform2f(shaderProgram.resolutionLoc,
-            static_cast<float>(WIDTH),
-            static_cast<float>(HEIGHT));
+            static_cast<float>(SIZE),
+            static_cast<float>(SIZE));
         glUniform1f(shaderProgram.timeLoc, static_cast<float>(glfwGetTime()));
 
         glBindVertexArray(VAO);
