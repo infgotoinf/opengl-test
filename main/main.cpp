@@ -182,7 +182,7 @@ int main()
     std::map<fs::path, Shader> shaders;
     for (auto &path : fs::directory_iterator("./resources/fragment"))
     {
-        shaders.insert({ path.path(), { path.path(), glCreateShader(GL_FRAGMENT_SHADER) }});
+        shaders.emplace(path.path(), Shader{ path.path(), glCreateShader(GL_FRAGMENT_SHADER) });
     }
 
     fs::path selectedShadersPath = shaders.begin()->first;
@@ -238,7 +238,7 @@ int main()
                 // Ngl that looks ugly if I would implement my own std::map it would look better
                 if (shaders.find(path.path()) == shaders.end())
                 {
-                    shaders.insert({ path.path(), { path.path(), glCreateShader(GL_FRAGMENT_SHADER) }});
+                    shaders.emplace(path.path(), Shader{ path.path(), glCreateShader(GL_FRAGMENT_SHADER) });
                 }
             }
             if (not fs::exists(selectedShadersPath))
