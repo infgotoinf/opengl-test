@@ -4,10 +4,10 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
-#include <cstdio>
+#include <iostream>
+#include <print>
 #include <string>
 #include <fstream>
-#include <sstream>
 #include <map>
 #include <filesystem>
 
@@ -26,11 +26,11 @@ class Shader {
 
     void compileShader()
     {
-        printf("Compiling %s\n", path.c_str());
+        std::println("Compiling {}", path.c_str());
 
         std::ifstream shader_file(path);
         if (!shader_file) {
-            printf("ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ\n%s\n", path.c_str());
+            std::println(std::cerr, "ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ\n{}", path.c_str());
             return;
         }
 
@@ -52,7 +52,7 @@ class Shader {
         {
             char infoLog[512];
             glGetShaderInfoLog(shader, 512, nullptr, infoLog);
-            printf("ERROR::SHADER::COMPILATION_FAILED\n%s\n", infoLog);
+            std::println(std::cerr, "ERROR::SHADER::COMPILATION_FAILED\n{}", infoLog);
         }
     }
 
@@ -83,7 +83,7 @@ class ShaderProgram {
 
     void createShaderProgram(const Shader *shader)
     {
-        printf("Creating shader program %d with shader %s\n", program, shader->path.c_str());
+        std::println("Creating shader program {} with shader {}", program, shader->path.c_str());
 
         static Shader vert_shader = { "./resources/vertex.vert", glCreateShader(GL_VERTEX_SHADER) };
 
@@ -98,7 +98,7 @@ class ShaderProgram {
         if(!success) {
             char infoLog[512];
             glGetProgramInfoLog(shaderProgram, 512, nullptr, infoLog);
-            printf("ERROR::SHADER::PROGRAM::LINK_FAILED\n%s\n", infoLog);
+            std::println(std::cerr, "ERROR::SHADER::PROGRAM::LINK_FAILED\n{}", infoLog);
         }
 
         // glDeleteShader(shader.shader);
@@ -130,14 +130,14 @@ public:
 
 
 
-void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+static void framebuffer_size_callback(GLFWwindow* window, int width, int height) noexcept
 {
     glViewport(0, 0, width, height);
 }
 
-static void glfw_error_callback(int code, const char* description)
+static void glfw_error_callback(int code, const char* description) noexcept
 {
-    printf("GLFW error %d: %s\n", code, description);
+    std::println(std::cerr, "GLFW error {}: {}", code, description);
 }
 
 
@@ -214,7 +214,7 @@ int main()
         }
         if(glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS && previousFrameSpaceState == GLFW_RELEASE)
         {
-            printf("Space was pressed\n");
+            std::println("Space was pressed\n");
 
             bool setPathToNext = false;
             fs::path newSelectedShadersPath;
@@ -222,7 +222,7 @@ int main()
             {
                 if (setPathToNext)
                 {
-                    printf("Switch to shader %s\n", path.c_str());
+                    std::println("Switch to shader {}", path.c_str());
 
                     newSelectedShadersPath = path;
                     selectedShadersPath = path;
@@ -234,7 +234,7 @@ int main()
             }
             if (newSelectedShadersPath.empty())
             {
-                printf("Switch to shader %s\n", shaders.begin()->first.c_str());
+                std::println("Switch to shader {}", shaders.begin()->first.c_str());
 
                 selectedShadersPath = shaders.begin()->first;
             }
