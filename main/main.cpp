@@ -40,8 +40,8 @@ class Shader {
         // close file handlers
         shader_file.close();
         // convert stream into string
-        std::string shader_code = shader_stream.str();
-        const char* cstr_shader_code = shader_code.c_str();
+        std::string shader_code { shader_stream.str() };
+        const char* cstr_shader_code { shader_code.c_str() };
 
         glShaderSource(shader, 1, &cstr_shader_code, nullptr);
         glCompileShader(shader);
@@ -66,7 +66,7 @@ public:
 
     bool updateShader()
     {
-        if (fs::file_time_type file_last_time_write = fs::last_write_time(path)
+        if (fs::file_time_type file_last_time_write { fs::last_write_time(path) }
            ; last_change_time < file_last_time_write)
         {
             compileShader();
@@ -85,23 +85,21 @@ class ShaderProgram {
     {
         std::println("Creating shader program {} with shader {}", program, shader->path.c_str());
 
-        static Shader vert_shader = { "./resources/vertex.vert", glCreateShader(GL_VERTEX_SHADER) };
+        static Shader vert_shader { "./resources/vertex.vert", glCreateShader(GL_VERTEX_SHADER) };
 
-        unsigned int shaderProgram = glCreateProgram();
+        unsigned int shaderProgram { glCreateProgram() };
         glAttachShader(shaderProgram, shader->shader);
         glAttachShader(shaderProgram, vert_shader.shader);
 
         glLinkProgram(shaderProgram);
 
-        int success;
+        int success { };
         glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
         if(!success) {
             char infoLog[512];
             glGetProgramInfoLog(shaderProgram, 512, nullptr, infoLog);
             std::println(std::cerr, "ERROR::SHADER::PROGRAM::LINK_FAILED\n{}", infoLog);
         }
-
-        // glDeleteShader(shader.shader);
 
         program = shaderProgram;
         shaderPath = shader->path;
@@ -175,26 +173,27 @@ int main()
         return 1;
 
 
-    unsigned int VAO;
+    unsigned int VAO { };
     glGenVertexArrays(1, &VAO);
 
 
-    std::map<fs::path, Shader> shaders;
+    std::map<fs::path, Shader> shaders { };
     for (auto &path : fs::directory_iterator("./resources/fragment"))
     {
         shaders.emplace(path.path(), Shader{ path.path(), glCreateShader(GL_FRAGMENT_SHADER) });
     }
 
-    fs::path selectedShadersPath = shaders.begin()->first;
+    fs::path selectedShadersPath { shaders.begin()->first };
 
-    ShaderProgram shaderProgram = shaders.at(selectedShadersPath);
+    ShaderProgram shaderProgram { shaders.at(selectedShadersPath) };
 
-    double mouse_x, mouse_y;
+    double mouse_x { };
+    double mouse_y { };
 
-    double shaderUpdateTime = glfwGetTime();
+    double shaderUpdateTime { glfwGetTime() };
 
-    bool previousFrameSpaceState = GLFW_RELEASE;
-    bool previousFrameRState = GLFW_RELEASE;
+    bool previousFrameSpaceState { GLFW_RELEASE };
+    bool previousFrameRState     { GLFW_RELEASE };
 
     // Loop until the user closes the window
     while (!glfwWindowShouldClose(window))
@@ -216,8 +215,8 @@ int main()
         {
             std::println("Space was pressed\n");
 
-            bool setPathToNext = false;
-            fs::path newSelectedShadersPath;
+            bool setPathToNext { false };
+            fs::path newSelectedShadersPath { };
             for (auto & [path, shader] : shaders)
             {
                 if (setPathToNext)
